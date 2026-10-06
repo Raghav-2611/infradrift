@@ -22,3 +22,35 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# ---------------------------------------------------------------------------
+# Terraform
+# ---------------------------------------------------------------------------
+
+# Local .terraform directory (provider binaries, modules cache)
+**/.terraform/*
+
+# Terraform state files — may contain secrets; never commit
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Terraform plan output files
+*.tfplan
+
+# Actual variable values — may contain sensitive data
+# (commit the .example file instead)
+terraform.tfvars
+
+# Terraform crash log
+crash.log
+crash.*.log
+
+# Override files (local dev overrides; not for team-wide use)
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Provider lock file — intentionally tracked so every contributor uses the
+# same provider versions. Do NOT add .terraform.lock.hcl to this file.

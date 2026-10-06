@@ -6,7 +6,44 @@ InfraDrift is an automated platform designed to detect differences between the d
 
 ---
 
-## 📦 Phase 2 — Docker (Current)
+## ☁️ Phase 3 — Terraform + AWS (Current)
+
+Terraform manages all AWS infrastructure for InfraDrift as code. Every resource is declared in the [`terraform/`](./terraform/) directory, version-controlled, and reproducible across environments. No infrastructure is ever provisioned by hand.
+
+### What Terraform manages
+
+| Resource | AWS Service | Purpose |
+|----------|-------------|---------|
+| `aws_security_group.drift_demo` | EC2 / VPC | Controls inbound/outbound traffic to the drift-demo server |
+| `aws_instance.drift_demo` | EC2 | Drift-demo server — its attributes will be mutated in later phases to simulate real-world infrastructure drift |
+
+### Prerequisites
+- [Terraform ≥ 1.6](https://developer.hashicorp.com/terraform/install) installed.
+- AWS credentials configured via `aws configure` **or** environment variables. **Never hardcode credentials.**
+
+### Commands
+
+```bash
+# 1. Copy the example vars and fill in your values
+cp terraform/terraform.tfvars.example terraform/terraform.tfvars
+
+# 2. Initialise — downloads the AWS provider
+cd terraform && terraform init
+
+# 3. Validate — checks syntax without contacting AWS
+terraform validate
+
+# 4. Plan — preview what will be created (no changes made)
+terraform plan
+```
+
+> ⚠️ Do **not** run `terraform apply` until you have reviewed the plan and are ready to provision real AWS resources.
+
+See [`terraform/README.md`](./terraform/README.md) for the full infrastructure reference.
+
+---
+
+## 📦 Phase 2 — Docker
 
 The InfraDrift frontend is fully containerised using a multi-stage Docker build:
 
@@ -83,23 +120,30 @@ npm run preview
 
 ```
 infradrift/
-├── Dockerfile              # Multi-stage Docker build (Phase 2)
-├── .dockerignore           # Docker build context exclusions
-├── nginx.conf              # Nginx SPA routing config (Phase 2)
-├── index.html              # HTML entry point with Google Fonts & SEO tags
-├── package.json            # Dependencies and npm scripts
-├── vite.config.js          # Vite configuration
+├── Dockerfile                   # Multi-stage Docker build (Phase 2)
+├── .dockerignore                # Docker build context exclusions
+├── nginx.conf                   # Nginx SPA routing config (Phase 2)
+├── index.html                   # HTML entry point with Google Fonts & SEO tags
+├── package.json                 # Dependencies and npm scripts
+├── vite.config.js               # Vite configuration
+├── terraform/                   # Infrastructure as Code (Phase 3)
+│   ├── providers.tf             # AWS provider + Terraform version constraints
+│   ├── variables.tf             # All input variables (region, project, env, AMI…)
+│   ├── main.tf                  # Resources: Security Group + EC2 drift-demo instance
+│   ├── outputs.tf               # Exported values (instance ID, public IP, SG ID…)
+│   ├── terraform.tfvars.example # Safe template — copy to terraform.tfvars
+│   └── README.md                # Terraform-specific docs and quick-start guide
 └── src/
-    ├── main.jsx            # React root mount
-    ├── App.jsx             # Main landing page layout
-    ├── index.css           # Minimalist design tokens & global CSS
+    ├── main.jsx                 # React root mount
+    ├── App.jsx                  # Main landing page layout
+    ├── index.css                # Minimalist design tokens & global CSS
     └── components/
-        ├── Navbar.jsx      # Top navigation header
-        ├── Hero.jsx        # Hero section with primary CTA
-        ├── VisualPipeline.jsx # Interactive 4-step pipeline representation
-        ├── HowItWorks.jsx  # 01 Define, 02 Detect, 03 Reconcile steps
-        ├── TechStack.jsx   # Terraform, AWS, Docker, Kubernetes ecosystem badges
-        └── Footer.jsx      # Clean minimal footer & links
+        ├── Navbar.jsx           # Top navigation header
+        ├── Hero.jsx             # Hero section with primary CTA
+        ├── VisualPipeline.jsx   # Interactive 4-step pipeline representation
+        ├── HowItWorks.jsx       # 01 Define, 02 Detect, 03 Reconcile steps
+        ├── TechStack.jsx        # Terraform, AWS, Docker, Kubernetes badges
+        └── Footer.jsx           # Clean minimal footer & links
 ```
 
 ---

@@ -4,11 +4,51 @@
 
 InfraDrift is an automated platform designed to detect differences between the desired state and actual state of cloud infrastructure and help safely bring infrastructure back into sync.
 
-This repository contains **Phase 1** of InfraDrift: a minimalist, high-performance landing page built with React and Vite.
+---
+
+## 📦 Phase 2 — Docker (Current)
+
+The InfraDrift frontend is fully containerised using a multi-stage Docker build:
+
+- **Stage 1 (builder):** `node:22-alpine` — installs dependencies and produces the Vite production bundle.
+- **Stage 2 (runner):** `nginx:1.27-alpine` — serves the static bundle with a lightweight, security-hardened Nginx config.
+
+### Prerequisites
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running.
+
+### Build the Docker Image
+
+```bash
+docker build -t infradrift:latest .
+```
+
+### Run the Docker Container
+
+```bash
+docker run -d -p 8080:80 --name infradrift infradrift:latest
+```
+
+| Flag | Purpose |
+|------|---------|
+| `-d` | Run in detached (background) mode |
+| `-p 8080:80` | Map host port **8080** → container port **80** |
+| `--name infradrift` | Give the container a friendly name |
+
+### Open in Browser
+
+```
+http://localhost:8080
+```
+
+### Stop & Remove the Container
+
+```bash
+docker stop infradrift && docker rm infradrift
+```
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Phase 1 — Local Development
 
 ### Prerequisites
 Make sure you have Node.js (v18 or higher) and `npm` installed.
@@ -43,6 +83,9 @@ npm run preview
 
 ```
 infradrift/
+├── Dockerfile              # Multi-stage Docker build (Phase 2)
+├── .dockerignore           # Docker build context exclusions
+├── nginx.conf              # Nginx SPA routing config (Phase 2)
 ├── index.html              # HTML entry point with Google Fonts & SEO tags
 ├── package.json            # Dependencies and npm scripts
 ├── vite.config.js          # Vite configuration

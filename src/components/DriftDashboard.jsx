@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import './DriftDashboard.css';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 export function DriftDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -25,14 +27,9 @@ export function DriftDashboard() {
     setLoading(true);
     setError(null);
     try {
-      let response;
-      try {
-        response = await fetch('/api/drift');
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      } catch {
-        // Fallback to absolute backend URL if relative path fails
-        response = await fetch('http://localhost:8000/api/drift');
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const response = await fetch(`${API_URL}/api/drift`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
       }
 
       const result = await response.json();
@@ -40,7 +37,7 @@ export function DriftDashboard() {
       setLastUpdated(new Date().toLocaleTimeString());
     } catch (err) {
       console.error('Failed to fetch drift report:', err);
-      setError(err.message || 'Unable to connect to FastAPI backend at http://localhost:8000');
+      setError(err.message || `Unable to connect to FastAPI backend at ${API_URL}`);
     } finally {
       setLoading(false);
     }

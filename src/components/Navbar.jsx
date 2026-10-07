@@ -17,6 +17,7 @@ export function Navbar() {
 
         <nav className="navbar-nav">
           <a href="#overview" className="nav-link">Overview</a>
+          <a href="#live-drift" className="nav-link">Live Audit</a>
           <a href="#how-it-works" className="nav-link">How It Works</a>
           <a href="#tech" className="nav-link">Tech</a>
           <a 

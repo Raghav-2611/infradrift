@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
+import { DriftDashboard } from './components/DriftDashboard';
 import { VisualPipeline } from './components/VisualPipeline';
 import { HowItWorks } from './components/HowItWorks';
 import { TechStack } from './components/TechStack';
@@ -13,6 +14,7 @@ export default function App() {
       <Navbar />
       <main>
         <Hero />
+        <DriftDashboard />
         <VisualPipeline />
         <HowItWorks />
         <TechStack />

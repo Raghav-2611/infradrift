@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.models.drift import DriftReport, ReportStatus
+from app.models.drift import DriftCategory, DriftReport, ReportStatus
 from app.services import drift_engine, terraform_service
 from app.services.terraform_service import TerraformError
 
@@ -120,12 +120,22 @@ def get_drift():
     # ---- Analyse -------------------------------------------------------------
     drift_records = drift_engine.analyse_plan(plan_json)
 
+    cfg_count = sum(
+        1 for r in drift_records if r.category == DriftCategory.CONFIGURATION_DRIFT
+    )
+    rnt_count = sum(
+        1 for r in drift_records
+        if r.category in (DriftCategory.RUNTIME_STATE_CHANGE, DriftCategory.DEPENDENCY_CHANGE)
+    )
+
     report_status = (
         ReportStatus.DRIFT_DETECTED if drift_records else ReportStatus.NO_DRIFT
     )
 
     return DriftReport(
         total_drifts=len(drift_records),
+        configuration_drifts=cfg_count,
+        runtime_changes=rnt_count,
         status=report_status,
         drifts=drift_records,
     )

@@ -2,9 +2,9 @@
   position: sticky;
   top: 0;
   z-index: 100;
-  background-color: rgba(7, 9, 14, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background-color: rgba(7, 9, 14, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border-subtle);
   height: 64px;
   display: flex;
@@ -41,32 +41,33 @@
 .brand-name {
   font-family: var(--font-sans);
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 1.05rem;
   letter-spacing: -0.01em;
 }
 
 .brand-badge {
   font-family: var(--font-mono);
   font-size: 0.6875rem;
-  color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-subtle);
-  padding: 1px 6px;
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 1px 7px;
   border-radius: 4px;
 }
 
 .navbar-nav {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 20px;
 }
 
 .nav-link {
   color: var(--text-secondary);
   text-decoration: none;
   font-size: 0.875rem;
-  font-weight: 400;
+  font-weight: 500;
   transition: color var(--transition-fast);
+  cursor: pointer;
 }
 
 .nav-link:hover {
@@ -89,12 +90,69 @@
   background: var(--bg-card);
 }
 
-@media (max-width: 640px) {
-  .navbar-nav {
-    gap: 16px;
-  }
-  
-  .brand-badge {
+.mobile-menu-toggle {
+  display: none;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.mobile-dropdown-menu {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .desktop-nav {
     display: none;
+  }
+
+  .mobile-menu-toggle {
+    display: flex;
+  }
+
+  .mobile-dropdown-menu {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 64px;
+    left: 0;
+    right: 0;
+    background: #090e17;
+    border-bottom: 1px solid var(--border-medium);
+    padding: 16px 24px;
+    gap: 14px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    animation: menuSlideDown 0.2s ease-out;
+  }
+
+  @keyframes menuSlideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .mobile-nav-link {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.9375rem;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .mobile-nav-link:hover {
+    color: var(--text-primary);
+  }
+
+  .github-mobile-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: none;
+    color: var(--accent-blue);
   }
 }

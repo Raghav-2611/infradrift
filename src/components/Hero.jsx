@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Activity } from 'lucide-react';
 import { GithubIcon } from './GithubIcon';
 import './Hero.css';
 
@@ -18,13 +18,18 @@ export function Hero() {
         </h1>
 
         <p className="hero-description">
-          Detect configuration drift across your infrastructure and safely bring it back to the desired state.
+          Detect configuration drift across your cloud resources in real-time, inspect granular attribute diffs, and safely bring your infrastructure back to the desired Terraform state.
         </p>
 
         <div className="hero-actions">
-          <a href="#how-it-works" className="btn-primary">
-            <span>Get Started</span>
+          <a href="#live-drift" className="btn-primary">
+            <Activity size={16} />
+            <span>Launch Live Audit</span>
             <ArrowRight size={16} />
+          </a>
+
+          <a href="#how-it-works" className="btn-secondary">
+            <span>How It Works</span>
           </a>
 
           <a 

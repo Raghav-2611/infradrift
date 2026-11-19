@@ -10,7 +10,7 @@ import os
 from contextlib import contextmanager
 from typing import Generator, Optional
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
@@ -138,6 +138,49 @@ def get_db_session() -> Generator[Session, None, None]:
         session.close()
 
 
+# Fixed 64-bit advisory lock key for InfraDrift Terraform operations:
+# ASCII 'InfraDrf' as 64-bit integer
+TERRAFORM_PG_ADVISORY_LOCK_ID = 5289943485747683942
+
+
+@contextmanager
+def acquire_advisory_lock_if_postgres() -> Generator[None, None, None]:
+    """
+    Acquire a PostgreSQL advisory lock if connected to a PostgreSQL database.
+    Provides distributed mutual exclusion across multiple worker processes.
+    In SQLite or when DB is disabled, yields safely without error.
+    """
+    engine = get_engine()
+    if engine is None or engine.dialect.name != "postgresql":
+        yield
+        return
+
+    conn = engine.connect()
+    try:
+        acquired = conn.execute(
+            text("SELECT pg_try_advisory_lock(:lock_id)"),
+            {"lock_id": TERRAFORM_PG_ADVISORY_LOCK_ID},
+        ).scalar()
+        if not acquired:
+            conn.close()
+            from app.services.terraform_service import TerraformConcurrencyError
+            raise TerraformConcurrencyError(
+                "A Terraform operation is already in progress on another worker (PostgreSQL advisory lock held)."
+            )
+        try:
+            yield
+        finally:
+            try:
+                conn.execute(
+                    text("SELECT pg_advisory_unlock(:lock_id)"),
+                    {"lock_id": TERRAFORM_PG_ADVISORY_LOCK_ID},
+                )
+            except Exception as exc:
+                logger.warning("Error releasing PostgreSQL advisory lock: %s", exc)
+    finally:
+        conn.close()
+
+
 def get_db() -> Generator[Optional[Session], None, None]:
     """
     FastAPI dependency that yields a database session or None if disabled.
@@ -154,3 +197,46 @@ def get_db() -> Generator[Optional[Session], None, None]:
         raise
     finally:
         session.close()
+
+
+# Fixed 64-bit advisory lock key for InfraDrift Terraform operations:
+# ASCII 'InfraDrf' as 64-bit integer
+TERRAFORM_PG_ADVISORY_LOCK_ID = 5289943485747683942
+
+
+@contextmanager
+def acquire_advisory_lock_if_postgres() -> Generator[None, None, None]:
+    """
+    Acquire a PostgreSQL advisory lock if connected to a PostgreSQL database.
+    Provides distributed mutual exclusion across multiple worker processes.
+    In SQLite or when DB is disabled, yields safely without error.
+    """
+    engine = get_engine()
+    if engine is None or engine.dialect.name != "postgresql":
+        yield
+        return
+
+    conn = engine.connect()
+    try:
+        acquired = conn.execute(
+            text("SELECT pg_try_advisory_lock(:lock_id)"),
+            {"lock_id": TERRAFORM_PG_ADVISORY_LOCK_ID},
+        ).scalar()
+        if not acquired:
+            conn.close()
+            from app.services.terraform_service import TerraformConcurrencyError
+            raise TerraformConcurrencyError(
+                "A Terraform operation is already in progress on another worker (PostgreSQL advisory lock held)."
+            )
+        try:
+            yield
+        finally:
+            try:
+                conn.execute(
+                    text("SELECT pg_advisory_unlock(:lock_id)"),
+                    {"lock_id": TERRAFORM_PG_ADVISORY_LOCK_ID},
+                )
+            except Exception as exc:
+                logger.warning("Error releasing PostgreSQL advisory lock: %s", exc)
+    finally:
+        conn.close()

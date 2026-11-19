@@ -21,7 +21,14 @@ from sqlalchemy.pool import StaticPool
 
 from app.db import repository, session
 from app.db.models import Base
-from app.main import get_drift, get_history, get_history_detail, health_check
+from app.main import (
+    get_drift,
+    get_history,
+    get_history_detail,
+    health_check,
+    liveness_check,
+    readiness_check,
+)
 from app.models.drift import (
     DriftCategory,
     DriftRecord,
@@ -288,3 +295,63 @@ def test_successful_get_drift_persists_scan(mock_plan, sqlite_test_db):
     assert detail.id == report.scan_id
     assert detail.total_drifts == 1
     assert detail.drifts[0].property == "instance_type"
+
+
+def test_kubernetes_liveness_endpoint():
+    """Verify GET /health/live returns 200 alive status."""
+    res = liveness_check()
+    assert res["status"] == "alive"
+    assert res["service"] == "infradrift-backend"
+
+
+def test_kubernetes_readiness_endpoint_with_and_without_db(sqlite_test_db):
+    """Verify GET /health/ready returns 200 ready when DB is healthy and when DB is disabled."""
+    # With DB enabled:
+    res = readiness_check()
+    assert res["status"] == "ready"
+    assert res["database_configured"] is True
+    assert res["database_connected"] is True
+
+    # With DB disabled:
+    session.reset_db_state()
+    res2 = readiness_check()
+    assert res2["status"] == "ready"
+    assert res2["database_configured"] is False
+    assert res2["database_connected"] is None
+
+
+def test_drift_record_source_defaults_and_k8s_support():
+    """Verify DriftRecord defaults to AWS_TERRAFORM and supports KUBERNETES_HELM."""
+    from app.models.drift import DriftSource
+
+    # Default source
+    rec1 = DriftRecord(
+        resource_name="aws_instance.drift_demo",
+        resource_type="aws_instance",
+        property="instance_type",
+        desired_value="t3.small",
+        actual_value="t3.micro",
+        severity=Severity.HIGH,
+        status=DriftStatus.DRIFTED,
+        category=DriftCategory.CONFIGURATION_DRIFT,
+        reason="Instance resized",
+    )
+    assert rec1.source == DriftSource.AWS_TERRAFORM
+    assert rec1.namespace is None
+
+    # Kubernetes Helm source
+    rec2 = DriftRecord(
+        resource_name="infradrift-frontend",
+        resource_type="Deployment",
+        property="spec.replicas",
+        desired_value="2",
+        actual_value="5",
+        severity=Severity.HIGH,
+        status=DriftStatus.RUNTIME_CHANGE,
+        category=DriftCategory.RUNTIME_STATE_CHANGE,
+        reason="Manual scale detected via kubectl",
+        source=DriftSource.KUBERNETES_HELM,
+        namespace="infradrift",
+    )
+    assert rec2.source == DriftSource.KUBERNETES_HELM
+    assert rec2.namespace == "infradrift"

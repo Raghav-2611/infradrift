@@ -12,8 +12,9 @@ from typing import Optional, Sequence
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import DriftScanModel
+from app.db.models import DriftScanModel, ReconciliationPlanModel
 from app.models.drift import DriftReport, Severity
+from app.models.reconciliation import ReconciliationPlanResponse
 
 logger = logging.getLogger(__name__)
 
@@ -113,3 +114,162 @@ def get_drift_scan_by_id(
     """
     stmt = select(DriftScanModel).where(DriftScanModel.id == scan_id)
     return db.scalars(stmt).first()
+
+
+def save_reconciliation_plan(
+    db: Session,
+    plan: ReconciliationPlanResponse,
+    plan_path: Optional[str] = None,
+) -> Optional[ReconciliationPlanModel]:
+    """
+    Persist a speculative reconciliation plan into PostgreSQL.
+    """
+    try:
+        summary_dict = (
+            plan.summary.model_dump(mode="json")
+            if hasattr(plan.summary, "model_dump")
+            else dict(plan.summary)
+        )
+        changes_json = [
+            c.model_dump(mode="json") if hasattr(c, "model_dump") else dict(c)
+            for c in plan.resource_changes
+        ]
+
+        plan_record = ReconciliationPlanModel(
+            id=plan.plan_id,
+            created_at=plan.generated_at,
+            status=plan.status.value if hasattr(plan.status, "value") else str(plan.status),
+            plan_path=plan_path,
+            plan_hash=plan.plan_hash,
+            expires_at=plan.expires_at,
+            approved_at=plan.approved_at,
+            approved_by=plan.approved_by,
+            approval_comment=plan.approval_comment,
+            rejected_at=plan.rejected_at,
+            rejected_by=plan.rejected_by,
+            rejection_reason=plan.rejection_reason,
+            has_destructive_changes=plan.summary.has_destructive_changes,
+            summary=summary_dict,
+            resource_changes=changes_json,
+        )
+
+        db.add(plan_record)
+        db.commit()
+        db.refresh(plan_record)
+        logger.info(
+            "Persisted reconciliation plan %s (destructive=%s) to PostgreSQL.",
+            plan_record.id,
+            plan_record.has_destructive_changes,
+        )
+        return plan_record
+    except Exception as exc:
+        db.rollback()
+        logger.error("Failed to persist reconciliation plan %s: %s", plan.plan_id, exc)
+        return None
+
+
+def get_reconciliation_plan_by_id(
+    db: Session,
+    plan_id: uuid.UUID,
+) -> Optional[ReconciliationPlanModel]:
+    """
+    Retrieve a reconciliation plan record by UUID.
+    """
+    stmt = select(ReconciliationPlanModel).where(ReconciliationPlanModel.id == plan_id)
+    return db.scalars(stmt).first()
+
+
+def get_latest_reconciliation_plan(
+    db: Session,
+) -> Optional[ReconciliationPlanModel]:
+    """
+    Retrieve the most recently generated reconciliation plan.
+    """
+    stmt = (
+        select(ReconciliationPlanModel)
+        .order_by(ReconciliationPlanModel.created_at.desc())
+        .limit(1)
+    )
+    return db.scalars(stmt).first()
+
+
+def update_plan_approval(
+    db: Session,
+    plan_id: uuid.UUID,
+    approved_by: str,
+    comment: Optional[str] = None,
+    approved_at: Optional[datetime] = None,
+) -> Optional[ReconciliationPlanModel]:
+    """
+    Record approval of a reconciliation plan in PostgreSQL.
+    """
+    plan_record = get_reconciliation_plan_by_id(db, plan_id)
+    if plan_record is None:
+        return None
+
+    try:
+        plan_record.status = "APPROVED"
+        plan_record.approved_at = approved_at or datetime.now(timezone.utc)
+        plan_record.approved_by = approved_by
+        plan_record.approval_comment = comment
+        db.commit()
+        db.refresh(plan_record)
+        logger.info("Recorded approval for plan %s by %s.", plan_id, approved_by)
+        return plan_record
+    except Exception as exc:
+        db.rollback()
+        logger.error("Failed to record approval for plan %s: %s", plan_id, exc)
+        return None
+
+
+def update_plan_rejection(
+    db: Session,
+    plan_id: uuid.UUID,
+    rejected_by: str,
+    reason: str,
+    rejected_at: Optional[datetime] = None,
+) -> Optional[ReconciliationPlanModel]:
+    """
+    Record rejection of a reconciliation plan in PostgreSQL.
+    """
+    plan_record = get_reconciliation_plan_by_id(db, plan_id)
+    if plan_record is None:
+        return None
+
+    try:
+        plan_record.status = "REJECTED"
+        plan_record.rejected_at = rejected_at or datetime.now(timezone.utc)
+        plan_record.rejected_by = rejected_by
+        plan_record.rejection_reason = reason
+        db.commit()
+        db.refresh(plan_record)
+        logger.info("Recorded rejection for plan %s by %s (reason: %s).", plan_id, rejected_by, reason)
+        return plan_record
+    except Exception as exc:
+        db.rollback()
+        logger.error("Failed to record rejection for plan %s: %s", plan_id, exc)
+        return None
+
+
+def update_plan_status(
+    db: Session,
+    plan_id: uuid.UUID,
+    status: str,
+) -> Optional[ReconciliationPlanModel]:
+    """
+    Update lifecycle status (e.g. EXPIRED) of a reconciliation plan in PostgreSQL.
+    """
+    plan_record = get_reconciliation_plan_by_id(db, plan_id)
+    if plan_record is None:
+        return None
+
+    try:
+        plan_record.status = status
+        db.commit()
+        db.refresh(plan_record)
+        logger.info("Updated status for plan %s to %s.", plan_id, status)
+        return plan_record
+    except Exception as exc:
+        db.rollback()
+        logger.error("Failed to update status for plan %s: %s", plan_id, exc)
+        return None

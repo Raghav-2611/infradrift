@@ -8,20 +8,26 @@
  *   - GET /api/history/{scan_id}
  */
 
-const DEFAULT_BACKEND_URL = 'http://3.90.25.185:8000';
-
+/**
+ * Resolve the backend API base URL.
+ * Priority order:
+ *   1. VITE_API_URL environment variable (if specified at build/runtime)
+ *   2. Relative path ("") for Kubernetes Ingress / Nginx reverse proxy,
+ *      avoiding hardcoded EC2 public IP addresses in frontend builds.
+ */
 export function getApiBaseUrl() {
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl && typeof envUrl === 'string' && envUrl.trim().length > 0) {
     return envUrl.trim().replace(/\/+$/, '');
   }
-  return DEFAULT_BACKEND_URL;
+  // Default to relative root for same-origin / Ingress routing
+  return '';
 }
 
 /**
- * Perform a GET request with timeout and error handling.
+ * Perform a request (GET or POST) with timeout and error handling.
  */
-async function fetchWithTimeout(endpoint, timeoutMs = 25000) {
+async function fetchWithTimeout(endpoint, timeoutMs = 25000, options = {}) {
   const baseUrl = getApiBaseUrl();
   const url = `${baseUrl}${endpoint}`;
 
@@ -30,10 +36,13 @@ async function fetchWithTimeout(endpoint, timeoutMs = 25000) {
 
   try {
     const response = await fetch(url, {
-      method: 'GET',
+      method: options.method || 'GET',
       headers: {
         'Accept': 'application/json',
+        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(options.headers || {}),
       },
+      body: options.body ? (typeof options.body === 'string' ? options.body : JSON.stringify(options.body)) : undefined,
       signal: controller.signal,
     });
 
@@ -49,14 +58,16 @@ async function fetchWithTimeout(endpoint, timeoutMs = 25000) {
       } catch {
         // Not a JSON response
       }
-      throw new Error(errorDetail);
+      const err = new Error(errorDetail);
+      err.status = response.status;
+      throw err;
     }
 
     return await response.json();
   } catch (err) {
     clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      throw new Error(`Request to ${url} timed out after ${timeoutMs / 1000}s. Backend might be performing Terraform refresh.`);
+      throw new Error(`Request to ${url} timed out after ${timeoutMs / 1000}s. Backend might be performing Terraform execution.`);
     }
     throw err;
   }
@@ -131,6 +142,8 @@ function normalizeDriftRecord(d, index) {
     status: d.status || 'DRIFTED',
     category: d.category || 'CONFIGURATION_DRIFT',
     reason: d.reason || 'Infrastructure state diverges from Terraform configuration.',
+    source: d.source || 'AWS_TERRAFORM',
+    namespace: d.namespace || null,
   };
 }
 
@@ -204,4 +217,55 @@ export async function fetchDriftScanDetail(scanId) {
     low_severity: Number.isInteger(raw?.low_severity) ? raw.low_severity : 0,
     drifts: rawDrifts.map((d, i) => normalizeDriftRecord(d, i)),
   };
+}
+
+/**
+ * Generate a speculative Terraform reconciliation plan (POST /api/reconciliation/plan).
+ * Read-only dry run; never executes apply or destroy.
+ */
+export async function generateReconciliationPlan() {
+  return await fetchWithTimeout('/api/reconciliation/plan', 60000, {
+    method: 'POST',
+  });
+}
+
+/**
+ * Fetch the latest generated reconciliation plan (GET /api/reconciliation/plan/latest).
+ */
+export async function fetchLatestReconciliationPlan() {
+  return await fetchWithTimeout('/api/reconciliation/plan/latest', 15000);
+}
+
+/**
+ * Fetch a specific reconciliation plan by UUID (GET /api/reconciliation/plan/{id}).
+ */
+export async function fetchReconciliationPlan(planId) {
+  return await fetchWithTimeout(`/api/reconciliation/plan/${planId}`, 15000);
+}
+
+/**
+ * Approve an existing PENDING_REVIEW reconciliation plan (POST /api/reconciliation/plan/{id}/approve).
+ */
+export async function approveReconciliationPlan(planId, payload = { approved_by: 'admin', comment: '' }) {
+  return await fetchWithTimeout(`/api/reconciliation/plan/${planId}/approve`, 20000, {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+/**
+ * Reject an existing reconciliation plan (POST /api/reconciliation/plan/{id}/reject).
+ */
+export async function rejectReconciliationPlan(planId, payload = { rejected_by: 'admin', reason: 'Rejected by operator' }) {
+  return await fetchWithTimeout(`/api/reconciliation/plan/${planId}/reject`, 20000, {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+/**
+ * Validate execution readiness of a reconciliation plan (GET /api/reconciliation/plan/{id}/readiness).
+ */
+export async function fetchExecutionReadiness(planId) {
+  return await fetchWithTimeout(`/api/reconciliation/plan/${planId}/readiness`, 15000);
 }

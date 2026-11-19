@@ -153,3 +153,50 @@ infradrift/
 - **Minimalist Aesthetic:** Dark theme with subtle slate borders, monochrome foundation, and generous whitespace.
 - **Developer First:** Monospace typography details, crisp terminal code preview, and high-contrast UI.
 - **Zero Bloat:** Lightweight React components with zero unnecessary third-party overhead.
+
+
+---
+
+## ☸️ Kubernetes & Helm Integration
+
+InfraDrift is fully cloud-native and deployable to any Kubernetes cluster (local Minikube/Kind or AWS EKS) via raw manifests or Helm 3.
+
+### 1. Build Container Images
+
+```bash
+# Build Frontend Image (Nginx + React SPA)
+docker build -t infradrift-frontend:v0.2.0 -f Dockerfile .
+
+# Build Backend Image (FastAPI + Terraform 1.7.5)
+docker build -t infradrift-backend:v0.2.0 -f backend/Dockerfile .
+```
+
+### 2. Deploy via Kubernetes Manifests
+
+```bash
+# Apply namespace, secrets, config, storage, and workloads
+kubectl apply -k k8s/
+
+# Verify status
+kubectl get pods -n infradrift
+```
+
+### 3. Deploy via Helm 3 Chart
+
+```bash
+# Install InfraDrift Helm release
+helm install infradrift ./helm/infradrift \
+  --namespace infradrift \
+  --create-namespace
+
+# Inspect release status
+helm status infradrift -n infradrift
+
+# Upgrade release
+helm upgrade infradrift ./helm/infradrift -n infradrift
+
+# Rollback release
+helm rollback infradrift 1 -n infradrift
+```
+
+See [`docs/eks-deployment-guide.md`](./docs/eks-deployment-guide.md) for full AWS EKS deployment instructions and [`docs/kubernetes-drift-architecture.md`](./docs/kubernetes-drift-architecture.md) for the Kubernetes drift detection architecture.

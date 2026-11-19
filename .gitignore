@@ -57,6 +57,8 @@ terraform/drift.tfplan
 
 # Terraform plan output files
 *.tfplan
+terraform/plans/
+backend/plans/
 
 # Actual variable values — may contain sensitive data
 # (commit the .example file instead)

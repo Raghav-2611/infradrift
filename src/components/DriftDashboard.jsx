@@ -18,7 +18,8 @@ import { DriftStatsCards } from './DriftStatsCards';
 import { DriftTable } from './DriftTable';
 import { DriftDetailsModal } from './DriftDetailsModal';
 import { RecommendationsPanel } from './RecommendationsPanel';
-import { FutureReconciliationModule, FutureMonitoringModule } from './FutureModules';
+import { FutureMonitoringModule } from './FutureModules';
+import { ReconciliationPlanView } from './ReconciliationPlanView';
 import { DriftHistoryView } from './DriftHistoryView';
 import './DriftDashboard.css';
 
@@ -254,7 +255,7 @@ export function DriftDashboard() {
           >
             <GitMerge size={16} />
             <span>Reconciliation</span>
-            <span className="future-pill mono">Safe Apply</span>
+            <span className="future-pill mono">Plan Review</span>
           </button>
 
           <button 
@@ -303,7 +304,7 @@ export function DriftDashboard() {
 
         {activeTab === 'reconciliation' && (
           <div className="tab-pane fade-in">
-            <FutureReconciliationModule />
+            <ReconciliationPlanView />
           </div>
         )}
 

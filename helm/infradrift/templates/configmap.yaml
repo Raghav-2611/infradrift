@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "infradrift.fullname" . }}-config
+  labels:
+    {{- include "infradrift.labels" . | nindent 4 }}
+    app.kubernetes.io/component: configuration
+data:
+  POSTGRES_DB: {{ .Values.postgresql.auth.database | quote }}
+  POSTGRES_USER: {{ .Values.postgresql.auth.username | quote }}
+  POSTGRES_HOST: {{ include "infradrift.postgresHost" . | quote }}
+  POSTGRES_PORT: {{ .Values.postgresql.service.port | quote }}
+  TERRAFORM_DIR: {{ .Values.backend.env.TERRAFORM_DIR | quote }}
+  PORT: {{ .Values.backend.env.PORT | quote }}
+  BACKEND_URL: {{ printf "http://%s-backend:%d" (include "infradrift.fullname" .) (int .Values.backend.service.port) | quote }}

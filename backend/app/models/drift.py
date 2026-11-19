@@ -14,6 +14,11 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
+class DriftSource(str, Enum):
+    AWS_TERRAFORM = "AWS_TERRAFORM"
+    KUBERNETES_HELM = "KUBERNETES_HELM"
+
+
 class Severity(str, Enum):
     LOW = "LOW"
     MEDIUM = "MEDIUM"
@@ -54,6 +59,8 @@ class DriftRecord(BaseModel):
     status: DriftStatus
     category: DriftCategory
     reason: str
+    source: DriftSource = DriftSource.AWS_TERRAFORM
+    namespace: Optional[str] = None
 
 
 class DriftReport(BaseModel):

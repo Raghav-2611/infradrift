@@ -12,6 +12,7 @@ export function DriftTable({ drifts, selectedDrift, onSelectDrift, loading }) {
   const [severityFilter, setSeverityFilter] = useState('ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [sourceFilter, setSourceFilter] = useState('ALL');
 
   const filteredDrifts = useMemo(() => {
     if (!drifts || !Array.isArray(drifts)) return [];
@@ -25,6 +26,14 @@ export function DriftTable({ drifts, selectedDrift, onSelectDrift, loading }) {
         const matchType = item.resource_type?.toLowerCase().includes(query);
         const matchReason = item.reason?.toLowerCase().includes(query);
         if (!matchResName && !matchProp && !matchType && !matchReason) {
+          return false;
+        }
+      }
+
+      // Source filter
+      if (sourceFilter !== 'ALL') {
+        const src = item.source || 'AWS_TERRAFORM';
+        if (src !== sourceFilter) {
           return false;
         }
       }
@@ -59,9 +68,10 @@ export function DriftTable({ drifts, selectedDrift, onSelectDrift, loading }) {
     setSeverityFilter('ALL');
     setCategoryFilter('ALL');
     setStatusFilter('ALL');
+    setSourceFilter('ALL');
   };
 
-  const hasActiveFilters = searchTerm !== '' || severityFilter !== 'ALL' || categoryFilter !== 'ALL' || statusFilter !== 'ALL';
+  const hasActiveFilters = searchTerm !== '' || severityFilter !== 'ALL' || categoryFilter !== 'ALL' || statusFilter !== 'ALL' || sourceFilter !== 'ALL';
 
   return (
     <div className="drift-table-wrapper">
@@ -84,6 +94,20 @@ export function DriftTable({ drifts, selectedDrift, onSelectDrift, loading }) {
         </div>
 
         <div className="filter-controls">
+          {/* Source filter */}
+          <div className="filter-group">
+            <label className="filter-label mono">SOURCE:</label>
+            <select
+              className="filter-select mono"
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+            >
+              <option value="ALL">All Sources</option>
+              <option value="AWS_TERRAFORM">AWS (Terraform)</option>
+              <option value="KUBERNETES_HELM">K8s (Helm)</option>
+            </select>
+          </div>
+
           {/* Severity filter */}
           <div className="filter-group">
             <label className="filter-label mono">SEVERITY:</label>
@@ -202,6 +226,12 @@ export function DriftTable({ drifts, selectedDrift, onSelectDrift, loading }) {
                     {/* Resource Name */}
                     <td className="td-resource">
                       <div className="resource-cell">
+                        <span 
+                          className={`source-pill mono ${d.source === 'KUBERNETES_HELM' ? 'source-k8s' : 'source-aws'}`}
+                          title={d.source === 'KUBERNETES_HELM' ? 'Source: Kubernetes (Helm)' : 'Source: AWS (Terraform)'}
+                        >
+                          {d.source === 'KUBERNETES_HELM' ? 'K8S' : 'AWS'}
+                        </span>
                         <Server size={14} className="cell-icon text-muted" />
                         <span className="resource-name-text mono" title={d.resource_name}>
                           {d.resource_name}

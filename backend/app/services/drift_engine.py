@@ -125,11 +125,13 @@ _RUNTIME_PROPERTIES: dict[str, str] = {
         "not a configuration change."
     ),
     "public_ip": (
-        "Public IP becomes empty when the instance is stopped; "
+        "The EC2 instance received a different public address, "
+        "potentially after a stop/start or replacement; "
         "this is a runtime-dependent value, not a configuration drift."
     ),
     "public_dns": (
-        "Public DNS becomes empty when the instance is stopped; "
+        "The EC2 instance received a different public address, "
+        "potentially after a stop/start or replacement; "
         "this is a runtime-dependent value, not a configuration drift."
     ),
     "ipv6_addresses": (
@@ -169,7 +171,69 @@ def _safe_str(value: Any) -> str:
     return str(value) if value is not None else "null"
 
 
-def _classify(prop: str) -> tuple[Severity, DriftStatus, DriftCategory, str]:
+def _is_empty(value: Any) -> bool:
+    """Return True if value is None, an empty string, or an empty collection."""
+    if value is None:
+        return True
+    if isinstance(value, str) and value.strip() == "":
+        return True
+    if isinstance(value, (list, dict, set, tuple)) and len(value) == 0:
+        return True
+    return False
+
+
+def _runtime_reason(prop: str, desired: Any = None, actual: Any = None) -> str:
+    """
+    Generate dynamic runtime explanation for lifecycle properties.
+
+    - When actual value is empty, explains that it becomes empty when stopped.
+    - When old and new values are both present but differ, explains that the instance
+      received a different public address, potentially after a stop/start or replacement.
+    - Never claims a value became empty unless actual is genuinely empty.
+    """
+    if prop in ("public_ip", "public_dns"):
+        target = "Public IP" if prop == "public_ip" else "Public DNS"
+
+        # Actual value became empty (e.g. stopped instance)
+        if _is_empty(actual):
+            return (
+                f"{target} becomes empty when the instance is stopped; "
+                "this is a runtime-dependent value, not a configuration drift."
+            )
+
+        # Both desired and actual values are present but differ
+        if not _is_empty(desired) and not _is_empty(actual):
+            return (
+                "The EC2 instance received a different public address, "
+                "potentially after a stop/start or replacement; "
+                "this is a runtime-dependent value, not a configuration drift."
+            )
+
+        # Desired was empty, actual is now populated
+        if _is_empty(desired) and not _is_empty(actual):
+            return (
+                "The EC2 instance received a public address, "
+                "potentially after a stop/start or replacement; "
+                "this is a runtime-dependent value, not a configuration drift."
+            )
+
+        return (
+            "The EC2 instance received a different public address, "
+            "potentially after a stop/start or replacement; "
+            "this is a runtime-dependent value, not a configuration drift."
+        )
+
+    return _RUNTIME_PROPERTIES.get(
+        prop,
+        f"The '{prop}' attribute changed as a runtime condition, not a configuration drift.",
+    )
+
+
+def _classify(
+    prop: str,
+    desired: Any = None,
+    actual: Any = None,
+) -> tuple[Severity, DriftStatus, DriftCategory, str]:
     """
     Return (severity, status, category, reason) for a given property name.
 
@@ -184,7 +248,7 @@ def _classify(prop: str) -> tuple[Severity, DriftStatus, DriftCategory, str]:
             Severity.LOW,
             DriftStatus.RUNTIME_CHANGE,
             DriftCategory.RUNTIME_STATE_CHANGE,
-            _RUNTIME_PROPERTIES[prop],
+            _runtime_reason(prop, desired=desired, actual=actual),
         )
 
     if prop in _DEPENDENCY_PROPERTIES:
@@ -239,7 +303,9 @@ def _extract_drifts_from_resource(resource: dict) -> list[DriftRecord]:
         if desired == actual:
             continue
 
-        severity, status, category, reason = _classify(key)
+        severity, status, category, reason = _classify(
+            key, desired=desired, actual=actual
+        )
 
         records.append(
             DriftRecord(

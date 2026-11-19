@@ -1,11 +1,17 @@
 """
 models/drift.py
-Pydantic models that describe infrastructure drift records
-and the top-level API response.
+Pydantic models that describe infrastructure drift records,
+top-level API responses, and persistent drift scan history.
 """
 
+from __future__ import annotations
+
+from datetime import datetime
 from enum import Enum
-from pydantic import BaseModel
+from typing import Optional
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict
 
 
 class Severity(str, Enum):
@@ -37,6 +43,8 @@ class ReportStatus(str, Enum):
 class DriftRecord(BaseModel):
     """A single attribute-level drift between desired and actual state."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     resource_name: str
     resource_type: str
     property: str
@@ -51,8 +59,54 @@ class DriftRecord(BaseModel):
 class DriftReport(BaseModel):
     """Top-level response returned by GET /api/drift."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     total_drifts: int
     configuration_drifts: int
     runtime_changes: int
     status: ReportStatus
+    drifts: list[DriftRecord]
+    scan_id: Optional[UUID] = None
+    scanned_at: Optional[datetime] = None
+
+
+class DriftScanSummary(BaseModel):
+    """Summary representation of a historical drift scan."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    scanned_at: datetime
+    status: ReportStatus
+    total_drifts: int
+    configuration_drifts: int
+    runtime_changes: int
+    high_severity: int
+    medium_severity: int
+    low_severity: int
+
+
+class DriftHistoryResponse(BaseModel):
+    """Paginated list response returned by GET /api/history."""
+
+    total_scans: int
+    limit: int
+    offset: int
+    scans: list[DriftScanSummary]
+
+
+class DriftScanDetail(BaseModel):
+    """Detailed response for a specific historical drift scan."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    scanned_at: datetime
+    status: ReportStatus
+    total_drifts: int
+    configuration_drifts: int
+    runtime_changes: int
+    high_severity: int
+    medium_severity: int
+    low_severity: int
     drifts: list[DriftRecord]

@@ -18,7 +18,8 @@ import { DriftStatsCards } from './DriftStatsCards';
 import { DriftTable } from './DriftTable';
 import { DriftDetailsModal } from './DriftDetailsModal';
 import { RecommendationsPanel } from './RecommendationsPanel';
-import { FutureHistoryModule, FutureReconciliationModule, FutureMonitoringModule } from './FutureModules';
+import { FutureReconciliationModule, FutureMonitoringModule } from './FutureModules';
+import { DriftHistoryView } from './DriftHistoryView';
 import './DriftDashboard.css';
 
 const AUTO_REFRESH_INTERVAL_SECONDS = 45;
@@ -308,7 +309,7 @@ export function DriftDashboard() {
 
         {activeTab === 'history' && (
           <div className="tab-pane fade-in">
-            <FutureHistoryModule />
+            <DriftHistoryView />
           </div>
         )}
 

@@ -12,15 +12,13 @@
  * Resolve the backend API base URL.
  * Priority order:
  *   1. VITE_API_URL environment variable (if specified at build/runtime)
- *   2. Relative path ("") for Kubernetes Ingress / Nginx reverse proxy,
- *      avoiding hardcoded EC2 public IP addresses in frontend builds.
+ *   2. Relative path ("") for reverse proxy / same-origin routing
  */
 export function getApiBaseUrl() {
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl && typeof envUrl === 'string' && envUrl.trim().length > 0) {
     return envUrl.trim().replace(/\/+$/, '');
   }
-  // Default to relative root for same-origin / Ingress routing
   return '';
 }
 
@@ -142,8 +140,6 @@ function normalizeDriftRecord(d, index) {
     status: d.status || 'DRIFTED',
     category: d.category || 'CONFIGURATION_DRIFT',
     reason: d.reason || 'Infrastructure state diverges from Terraform configuration.',
-    source: d.source || 'AWS_TERRAFORM',
-    namespace: d.namespace || null,
   };
 }
 

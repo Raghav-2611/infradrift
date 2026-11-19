@@ -109,7 +109,7 @@ def health_check():
 @app.get("/health/live", tags=["health"])
 def liveness_check():
     """
-    Kubernetes liveness probe.
+    Liveness probe.
     Returns 200 OK as long as the Uvicorn application process is alive.
     """
     return {
@@ -122,7 +122,7 @@ def liveness_check():
 @app.get("/health/ready", tags=["health"])
 def readiness_check():
     """
-    Kubernetes readiness probe.
+    Readiness probe.
     Returns 200 OK when ready to accept traffic.
     Verifies database connectivity if DATABASE_URL is configured.
     """

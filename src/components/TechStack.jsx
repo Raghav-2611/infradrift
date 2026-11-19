@@ -6,7 +6,7 @@ const techList = [
   { name: 'Terraform', category: 'Infrastructure as Code', icon: Cpu },
   { name: 'AWS', category: 'Cloud Provider', icon: Cloud },
   { name: 'Docker', category: 'Containerization', icon: Box },
-  { name: 'Kubernetes', category: 'Orchestration', icon: Layers }
+  { name: 'PostgreSQL', category: 'Audit & Persistence', icon: Layers }
 ];
 
 export function TechStack() {

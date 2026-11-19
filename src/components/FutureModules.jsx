@@ -185,7 +185,7 @@ export function FutureMonitoringModule() {
         <div className="module-spec-card">
           <h4 className="spec-title mono text-primary">GRAFANA DASHBOARD SUITE</h4>
           <ul className="spec-list text-secondary">
-            <li>Pre-baked Grafana dashboard JSON models for Kubernetes & Cloud monitoring</li>
+            <li>Pre-baked Grafana dashboard JSON models for AWS & Cloud infrastructure monitoring</li>
             <li>Alertmanager routing for Slack, PagerDuty, and OpsGenie on HIGH-severity drift</li>
             <li>Trend graphs showing drift velocity over deployment sprints</li>
           </ul>

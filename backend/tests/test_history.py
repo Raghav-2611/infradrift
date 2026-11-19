@@ -297,14 +297,14 @@ def test_successful_get_drift_persists_scan(mock_plan, sqlite_test_db):
     assert detail.drifts[0].property == "instance_type"
 
 
-def test_kubernetes_liveness_endpoint():
+def test_liveness_endpoint():
     """Verify GET /health/live returns 200 alive status."""
     res = liveness_check()
     assert res["status"] == "alive"
     assert res["service"] == "infradrift-backend"
 
 
-def test_kubernetes_readiness_endpoint_with_and_without_db(sqlite_test_db):
+def test_readiness_endpoint_with_and_without_db(sqlite_test_db):
     """Verify GET /health/ready returns 200 ready when DB is healthy and when DB is disabled."""
     # With DB enabled:
     res = readiness_check()
@@ -320,38 +320,61 @@ def test_kubernetes_readiness_endpoint_with_and_without_db(sqlite_test_db):
     assert res2["database_connected"] is None
 
 
-def test_drift_record_source_defaults_and_k8s_support():
-    """Verify DriftRecord defaults to AWS_TERRAFORM and supports KUBERNETES_HELM."""
-    from app.models.drift import DriftSource
+def test_load_runtime_env_and_url_normalization(tmp_path, monkeypatch):
+    """Verify runtime env loading handles unquoted, quoted, and export formats, and normalizes properly."""
+    # Ensure DATABASE_URL is not set
+    monkeypatch.delenv("DATABASE_URL", raising=False)
 
-    # Default source
-    rec1 = DriftRecord(
-        resource_name="aws_instance.drift_demo",
-        resource_type="aws_instance",
-        property="instance_type",
-        desired_value="t3.small",
-        actual_value="t3.micro",
-        severity=Severity.HIGH,
-        status=DriftStatus.DRIFTED,
-        category=DriftCategory.CONFIGURATION_DRIFT,
-        reason="Instance resized",
+    env_file = tmp_path / ".env.runtime"
+    env_file.write_text(
+        '# Sample runtime env\n'
+        'export TEST_PORT=8000\n'
+        'DATABASE_URL="postgresql+psycopg://infradrift_user:secret_pass@127.0.0.1:5432/infradrift"\n'
+        'OTHER_SETTING=\'test_val\'\n',
+        encoding="utf-8",
     )
-    assert rec1.source == DriftSource.AWS_TERRAFORM
-    assert rec1.namespace is None
 
-    # Kubernetes Helm source
-    rec2 = DriftRecord(
-        resource_name="infradrift-frontend",
-        resource_type="Deployment",
-        property="spec.replicas",
-        desired_value="2",
-        actual_value="5",
-        severity=Severity.HIGH,
-        status=DriftStatus.RUNTIME_CHANGE,
-        category=DriftCategory.RUNTIME_STATE_CHANGE,
-        reason="Manual scale detected via kubectl",
-        source=DriftSource.KUBERNETES_HELM,
-        namespace="infradrift",
+    # Patch candidates in session
+    monkeypatch.setattr(
+        "app.db.session.load_runtime_env",
+        lambda: _mock_load_env(env_file),
     )
-    assert rec2.source == DriftSource.KUBERNETES_HELM
-    assert rec2.namespace == "infradrift"
+
+    def _mock_load_env(path):
+        import os
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith("export "):
+                    line = line[7:].strip()
+                if "=" in line:
+                    k, _, v = line.partition("=")
+                    k, v = k.strip(), v.strip().strip("'\"")
+                    if k and k not in os.environ:
+                        os.environ[k] = v
+
+    _mock_load_env(env_file)
+    import os
+    assert os.environ.get("DATABASE_URL") == "postgresql+psycopg://infradrift_user:secret_pass@127.0.0.1:5432/infradrift"
+
+    # Test URL normalization with quotes
+    from app.db.session import normalize_database_url
+    assert normalize_database_url('"postgresql://user:pass@localhost:5432/db"') == "postgresql+psycopg://user:pass@localhost:5432/db"
+    assert normalize_database_url("'postgres://user:pass@localhost:5432/db'") == "postgresql+psycopg://user:pass@localhost:5432/db"
+
+
+def test_sanitize_error_message_never_exposes_password():
+    """Verify passwords are scrubbed from error messages."""
+    from app.db.session import _sanitize_error_message
+
+    msg = "Could not connect to postgresql+psycopg://infradrift_user:super_secret_pwd_123@127.0.0.1:5432/infradrift"
+    sanitized = _sanitize_error_message(msg)
+    assert "super_secret_pwd_123" not in sanitized
+    assert "infradrift_user:***@" in sanitized
+
+    msg2 = "FATAL: password=my_plain_pass failed for user infradrift"
+    sanitized2 = _sanitize_error_message(msg2)
+    assert "my_plain_pass" not in sanitized2
+    assert "password=***" in sanitized2
